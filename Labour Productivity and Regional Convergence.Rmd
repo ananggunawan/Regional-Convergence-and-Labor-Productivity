@@ -1,0 +1,145 @@
+---
+title: "Labour Productivity and Regional Convergence"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+## LIBRARY SETTING
+```{r setup}
+library(ExPanDaR)
+library(knitr)
+library(tidyverse)
+library(modelr)
+library(broom)
+library(data.table)
+library(REAT)
+library(readxl)
+options(scipen=999)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+## Import Dataset for GRDPPerCapita (Data1) 
+```{r}
+library(readr)
+Data1 <- read_csv("Desktop/Regional Convergence and Labor Productivity/logDataOne .csv")
+Data1
+```
+## Data Transform
+
+```{r}
+library(tidyr)
+longData1 <- gather(Data1, Year, GRDPPerCapita, -1:-2)
+longData1
+```
+## Plot Data GRDP_PerCapita
+
+```{r}
+graph_GRDPPerCapita <- prepare_trend_graph(longData1, ts_id = "Year", "GRDPPerCapita")
+graph_GRDPPerCapita$plot
+```
+## Preparing Data for Analysis Sigma and Beta Convergence (Absolute)
+
+```{r}
+ColData1 <- longData1 %>% 
+  select(Region, Province,Year, GRDPPerCapita ) %>% 
+  filter( Year == "2006" | Year == "2011" | Year == "2017" ) %>% 
+  mutate(Y = "GRDP_PC_y") %>% 
+  unite(YEAR, Y, Year) %>% 
+  spread(YEAR, GRDPPerCapita)
+ColData1
+```
+# sigma convergence 
+```{r}
+sigmaconv(dplyr::pull(ColData1,GRDP_PC_y_2006), 2006, dplyr::pull(ColData1,GRDP_PC_y_2017), 2017, sigma.measure = "sd", 
+sigma.log = TRUE, sigma.weighting = NULL, sigma.norm = FALSE, 
+sigma.issample = TRUE, print.results = TRUE) 
+```
+In this project, I use 3 conservative years, which are 2006, 2011, 2017.
+In 2011 through 
+
+# beta convergence 2006 to 2017 (total observation)
+```{r}
+betaconv.ols(ColData1$GRDP_PC_y_2006, 2006, ColData1$GRDP_PC_y_2017, 2017, conditions = NULL, beta.plot = TRUE, 
+beta.plotPSize = 1, beta.plotPCol = "black", beta.plotLine = TRUE, 
+beta.plotLineCol = "red", beta.plotX = "Ln (initial) Year 2006", beta.plotY = "Ln (Cum Growth) Year 2017", 
+beta.plotTitle = " GDPPerCapita Beta Convergence", beta.bgCol = "gray95", beta.bgrid = TRUE, 
+beta.bgridCol = "white", beta.bgridSize = 2, beta.bgridType = "solid", 
+print.results = TRUE) 
+```
+# beta convergence 2006 to 2011 (first period observation, normal condition)
+```{r}
+betaconv.ols(ColData1$GRDP_PC_y_2006, 2006, ColData1$GRDP_PC_y_2011, 2011, conditions = NULL, beta.plot = TRUE, 
+beta.plotPSize = 1, beta.plotPCol = "black", beta.plotLine = TRUE, 
+beta.plotLineCol = "red", beta.plotX = "Ln (initial) Year 2006", beta.plotY = "Ln (Cum Growth) Year 2011", 
+beta.plotTitle = " GDPPerCapita Beta Convergence", beta.bgCol = "gray95", beta.bgrid = TRUE, 
+beta.bgridCol = "white", beta.bgridSize = 2, beta.bgridType = "solid", 
+print.results = TRUE) 
+```
+# beta convergence 2011 to 2017 (second period observation, commodity boom)
+```{r}
+betaconv.ols(ColData1$GRDP_PC_y_2011, 2011, ColData1$GRDP_PC_y_2017, 2017, conditions = NULL, beta.plot = TRUE, 
+beta.plotPSize = 1, beta.plotPCol = "black", beta.plotLine = TRUE, 
+beta.plotLineCol = "red", beta.plotX = "Ln (initial) Year 2011", beta.plotY = "Ln (Cum Growth) Year 2017", 
+beta.plotTitle = " GDPPerCapita Beta Convergence", beta.bgCol = "gray95", beta.bgrid = TRUE, 
+beta.bgridCol = "white", beta.bgridSize = 2, beta.bgridType = "solid", 
+print.results = TRUE) 
+```
+## Preparing Data for Analysis Beta Convergence (Conditional)
+## Importing Data Labor Productivity (Data2)
+
+```{r}
+logData2 <- read_csv("Desktop/Regional Convergence and Labor Productivity/Data2.csv")
+logData2
+Data3 <- read_csv("Desktop/Regional Convergence and Labor Productivity/Data3.csv")
+Data3
+```
+## Data2 Transform 
+```{r}
+library(tidyr)
+longData2 <- gather(Data2, Year, LabProd, -1:-2)
+longData2
+```
+## Preparing Data for Analysis Sigma and Beta Convergence (Conditional)
+```{r}
+ColData2 <- longData2 %>% 
+  select(Region, Province,Year, LabProd ) %>% 
+  filter( Year == "2006" | Year == "2011" | Year == "2017" ) %>% 
+  mutate(Y = "LabProd_y") %>% 
+  unite(YEAR, Y, Year) %>% 
+  spread(YEAR, LabProd)
+ColData2
+```
+## Join The Data (GRDP PerCapita, LabProd )
+
+```{r}
+library(tidyr)
+AllData <- full_join(ColData1, ColData2, by = c("Region", "Province"))
+AllData
+```
+
+
+
+```{r}
+growth_LabProd <- AllData %>%
+mutate(growth_LabProd = ((((AllData$LabProd_y_2017/AllData$LabProd_y_2011)^(1/6)))-1)*100)
+growth_LabProd
+```
+
+Why the conditions = ........ is not working well?
+
+```{r}
+betaconv.ols(AllData$GRDP_PC_y_2011, 2011, AllData$GRDP_PC_y_2017, 2017, conditions = AllData$GRDP_PC_y_2011, beta.plot = TRUE, 
+beta.plotPSize = 1, beta.plotPCol = "black", beta.plotLine = TRUE, 
+beta.plotLineCol = "red", beta.plotX = "Ln (initial) Year 2011", beta.plotY = "Ln (Cum Growth) Year 2017", 
+beta.plotTitle = " GDPPerCapita Beta Convergence", beta.bgCol = "gray95", beta.bgrid = TRUE, 
+beta.bgridCol = "white", beta.bgridSize = 2, beta.bgridType = "solid", 
+print.results = TRUE) 
+```
